@@ -122,10 +122,13 @@ mavxa-kanban-desktop/
 - [x] Frontend switched to Tauri `invoke` with fallback mock data
 - [x] Added desktop scripts: `tauri:dev`, `tauri:build`
 - [x] Frontend checks passing (`bun run lint`, `bun run build`)
+- [x] SQLite layer split into `src-tauri/src/db` modules (`connection`, `migrations`, `seed`, `repo`)
+- [x] Added first SQL migration (`src-tauri/migrations/001_init.sql`) with indexes/constraints
+- [x] Refactored Tauri commands to use DB module API
+- [x] ESLint ignores updated for generated Tauri build artifacts
 
 ### Next Up
 
-- [ ] Split SQLite bootstrap into dedicated `src-tauri/src/db` modules + add migrations
 - [ ] Implement full CRUD commands (create/update/delete task, columns)
 - [ ] Add WIP-limit enforcement in backend move/create commands
 - [ ] Add basic integration tests for Tauri commands
@@ -136,3 +139,5 @@ mavxa-kanban-desktop/
 **Session 1 (2026-03-30):** Migrated AGENTS.md from `~/zed/old-mavxa-kanban` to `~/zed/mavxa-kanban-desktop`, replacing old web stack assumptions with target desktop stack (Tauri + React/TS/Vite/Tailwind 4.1 + SQLite).
 
 **Session 2 (2026-03-30):** Began full desktop migration from old web project. Ported kanban UI design and drag-and-drop flow into React/Vite app, initialized Tauri (`src-tauri`), added local SQLite schema+seed bootstrap via `rusqlite`, and wired Tauri commands for board load and task move with optimistic frontend updates through `@tauri-apps/api`. Added `tauri:dev`/`tauri:build` scripts. Frontend lint/build pass; first bundle attempt blocked by crates.io network timeout during Rust dependency download.
+
+**Session 3 (2026-03-31):** Refactored SQLite integration into dedicated Tauri DB modules: connection/path handling, SQL migrations via `PRAGMA user_version`, seed bootstrap, and repository functions for board read + task move transaction. Added migration file `001_init.sql` (tables, constraints, indexes), kept command behavior stable (`get_board_data`, `move_task`), and updated ESLint ignores to skip `src-tauri/target` generated files. Frontend lint/build pass.
