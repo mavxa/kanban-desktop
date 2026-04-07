@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState } from "react";
 import { moveTask } from "./api";
 import { BoardColumn } from "./BoardColumn";
 import { TaskCardPreview } from "./TaskCard";
@@ -27,7 +27,6 @@ interface DragStartMeta {
 export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   const [columns, setColumns] = useState<ColumnData[]>(initialColumns);
   const [activeTask, setActiveTask] = useState<TaskData | null>(null);
-  const [, startTransition] = useTransition();
   const dragStartMetaRef = useRef<DragStartMeta | null>(null);
   const columnsRef = useRef(initialColumns);
 
@@ -204,12 +203,10 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         return;
       }
 
-      startTransition(() => {
-        void moveTask({
-          taskId: Number(activeId),
-          toColumnId: toColumn.id,
-          toPosition,
-        });
+      void moveTask({
+        taskId: Number(activeId),
+        toColumnId: toColumn.id,
+        toPosition,
       });
     },
     [findColumnById, findColumnByTaskId, setColumnsAndSync],
