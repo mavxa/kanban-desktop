@@ -128,23 +128,95 @@ pub fn move_task(
         )
         .map_err(|err| format!("failed to resolve task position: {err}"))?;
 
-    tx.execute(
-        "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > ?2",
-        params![from_column_id, from_position],
-    )
-    .map_err(|err| format!("failed to compact source positions: {err}"))?;
+    let mut normalized_to_position = if to_position < 0 { 0 } else { to_position };
 
-    tx.execute(
-        "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2",
-        params![to_column_id, to_position],
-    )
-    .map_err(|err| format!("failed to expand destination positions: {err}"))?;
+    if from_column_id == to_column_id {
+        let max_position: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) - 1 FROM tasks WHERE column_id = ?1",
+                [to_column_id],
+                |row| row.get(0),
+            )
+            .map_err(|err| format!("failed to count tasks in source column: {err}"))?;
 
-    tx.execute(
-        "UPDATE tasks SET column_id = ?1, position = ?2 WHERE id = ?3",
-        params![to_column_id, to_position, task_id],
-    )
-    .map_err(|err| format!("failed to move task: {err}"))?;
+        if normalized_to_position > max_position {
+            normalized_to_position = max_position;
+        }
+
+        if normalized_to_position > from_position {
+            tx.execute(
+                "
+                UPDATE tasks
+                SET position = position - 1
+                WHERE column_id = ?1
+                  AND position > ?2
+                  AND position <= ?3
+                  AND id != ?4
+                ",
+                params![
+                    from_column_id,
+                    from_position,
+                    normalized_to_position,
+                    task_id
+                ],
+            )
+            .map_err(|err| format!("failed to shift tasks down in same column: {err}"))?;
+        } else if normalized_to_position < from_position {
+            tx.execute(
+                "
+                UPDATE tasks
+                SET position = position + 1
+                WHERE column_id = ?1
+                  AND position >= ?2
+                  AND position < ?3
+                  AND id != ?4
+                ",
+                params![
+                    from_column_id,
+                    normalized_to_position,
+                    from_position,
+                    task_id
+                ],
+            )
+            .map_err(|err| format!("failed to shift tasks up in same column: {err}"))?;
+        }
+
+        tx.execute(
+            "UPDATE tasks SET position = ?1 WHERE id = ?2",
+            params![normalized_to_position, task_id],
+        )
+        .map_err(|err| format!("failed to reorder task in same column: {err}"))?;
+    } else {
+        let max_insert_position: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM tasks WHERE column_id = ?1",
+                [to_column_id],
+                |row| row.get(0),
+            )
+            .map_err(|err| format!("failed to count tasks in destination column: {err}"))?;
+
+        if normalized_to_position > max_insert_position {
+            normalized_to_position = max_insert_position;
+        }
+
+        tx.execute(
+            "UPDATE tasks SET position = position - 1 WHERE column_id = ?1 AND position > ?2",
+            params![from_column_id, from_position],
+        )
+        .map_err(|err| format!("failed to compact source positions: {err}"))?;
+
+        tx.execute(
+            "UPDATE tasks SET position = position + 1 WHERE column_id = ?1 AND position >= ?2",
+            params![to_column_id, normalized_to_position],
+        )
+        .map_err(|err| format!("failed to expand destination positions: {err}"))?;
+
+        tx.execute(
+            "UPDATE tasks SET column_id = ?1, position = ?2 WHERE id = ?3",
+            params![to_column_id, normalized_to_position, task_id],
+        )
+        .map_err(|err| format!("failed to move task: {err}"))?;
+    }
 
     tx.execute(
         "INSERT INTO task_history (task_id, from_column_id, to_column_id) VALUES (?1, ?2, ?3)",
