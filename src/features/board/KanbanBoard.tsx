@@ -32,12 +32,17 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: { distance: 12 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const getTaskId = useCallback((id: UniqueIdentifier) => {
+    const raw = String(id);
+    return raw.startsWith("task-") ? raw.slice("task-".length) : raw;
+  }, []);
 
   const findColumnByTaskId = useCallback((taskId: UniqueIdentifier): ColumnData | undefined => {
     return columnsRef.current.find((column) => column.tasks.some((task) => task.id === String(taskId)));
@@ -51,11 +56,12 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const { active } = event;
-      const column = findColumnByTaskId(active.id);
-      const task = column?.tasks.find((item) => item.id === String(active.id));
+      const activeTaskId = getTaskId(active.id);
+      const column = findColumnByTaskId(activeTaskId);
+      const task = column?.tasks.find((item) => item.id === activeTaskId);
 
       if (column) {
-        const fromPosition = column.tasks.findIndex((item) => item.id === String(active.id));
+        const fromPosition = column.tasks.findIndex((item) => item.id === activeTaskId);
         dragStartMetaRef.current = {
           fromColumnId: column.id,
           fromPosition,
@@ -66,7 +72,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         setActiveTask(task);
       }
     },
-    [findColumnByTaskId],
+    [findColumnByTaskId, getTaskId],
   );
 
   const handleDragEnd = useCallback(
@@ -78,7 +84,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         return;
       }
 
-      const activeId = String(active.id);
+      const activeId = getTaskId(active.id);
       const overId = String(over.id);
       const dragStartMeta = dragStartMetaRef.current;
       dragStartMetaRef.current = null;
@@ -135,7 +141,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           });
         }
       } else {
-        toColumn = findColumnByTaskId(overId);
+        toColumn = findColumnByTaskId(getTaskId(overId));
         if (!toColumn) {
           return;
         }
@@ -150,7 +156,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           return;
         }
 
-        toPosition = toColumn.tasks.findIndex((task) => task.id === overId);
+        toPosition = toColumn.tasks.findIndex((task) => task.id === getTaskId(overId));
 
         if (toPosition === -1) {
           return;
@@ -210,7 +216,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         toPosition,
       });
     },
-    [findColumnById, findColumnByTaskId],
+    [findColumnById, findColumnByTaskId, getTaskId],
   );
 
   return (

@@ -19,6 +19,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
   });
 
   const taskIds = tasks.map((task) => task.id);
+  const sortableTaskIds = taskIds.map((taskId) => `task-${taskId}`);
 
   return (
     <div className="flex w-72 shrink-0 flex-col">
@@ -45,7 +46,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
         ) : null}
       </div>
 
-      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+      <SortableContext items={sortableTaskIds} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
           className={`flex min-h-32 flex-col gap-2 rounded-lg border border-dashed p-2 transition-colors duration-200 ${
@@ -59,7 +60,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
           {tasks.map((task) => (
             <TaskCard
               key={task.id}
-              id={task.id}
+              id={`task-${task.id}`}
               title={task.title}
               description={task.description}
               priority={task.priority}
