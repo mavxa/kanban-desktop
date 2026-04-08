@@ -7,6 +7,7 @@ import type { ColumnData } from "./types";
 export function BoardScreen() {
   const [columns, setColumns] = useState<ColumnData[]>(FALLBACK_COLUMNS);
   const [isLoading, setIsLoading] = useState(true);
+  const [boardRevision, setBoardRevision] = useState(0);
 
   useEffect(() => {
     let isDisposed = false;
@@ -16,6 +17,7 @@ export function BoardScreen() {
         const boardColumns = await getBoardData();
         if (!isDisposed) {
           setColumns(boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS);
+          setBoardRevision((value) => value + 1);
         }
       } finally {
         if (!isDisposed) {
@@ -61,7 +63,7 @@ export function BoardScreen() {
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-zinc-500">Loading board...</div>
         ) : (
-          <KanbanBoard initialColumns={columns} />
+          <KanbanBoard key={boardRevision} initialColumns={columns} />
         )}
       </main>
     </section>
