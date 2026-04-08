@@ -26,7 +26,7 @@ pub fn get_board_data(conn: &Connection) -> Result<Vec<ColumnRow>, String> {
 
     let mut columns_stmt = conn
         .prepare(
-            "SELECT id, title, wip_limit FROM columns WHERE board_id = ?1 ORDER BY position ASC",
+            "SELECT id, title, wip_limit FROM columns WHERE board_id = ?1 ORDER BY position ASC, id ASC",
         )
         .map_err(|err| format!("failed to prepare columns query: {err}"))?;
 
@@ -48,7 +48,7 @@ pub fn get_board_data(conn: &Connection) -> Result<Vec<ColumnRow>, String> {
 
         let mut tasks_stmt = conn
             .prepare(
-                "SELECT id, title, description, priority FROM tasks WHERE column_id = ?1 ORDER BY position ASC",
+                "SELECT id, title, description, priority FROM tasks WHERE column_id = ?1 ORDER BY position ASC, id ASC",
             )
             .map_err(|err| format!("failed to prepare tasks query: {err}"))?;
 
@@ -130,11 +130,14 @@ pub fn move_task(
 
     let mut normalized_to_position = if to_position < 0 { 0 } else { to_position };
 
+    tx.execute("UPDATE tasks SET position = -1 WHERE id = ?1", [task_id])
+        .map_err(|err| format!("failed to reserve moving task slot: {err}"))?;
+
     if from_column_id == to_column_id {
         let max_position: i64 = tx
             .query_row(
-                "SELECT COUNT(*) - 1 FROM tasks WHERE column_id = ?1",
-                [to_column_id],
+                "SELECT COUNT(*) FROM tasks WHERE column_id = ?1 AND id != ?2",
+                params![to_column_id, task_id],
                 |row| row.get(0),
             )
             .map_err(|err| format!("failed to count tasks in source column: {err}"))?;
@@ -151,14 +154,8 @@ pub fn move_task(
                 WHERE column_id = ?1
                   AND position > ?2
                   AND position <= ?3
-                  AND id != ?4
                 ",
-                params![
-                    from_column_id,
-                    from_position,
-                    normalized_to_position,
-                    task_id
-                ],
+                params![from_column_id, from_position, normalized_to_position],
             )
             .map_err(|err| format!("failed to shift tasks down in same column: {err}"))?;
         } else if normalized_to_position < from_position {
@@ -169,21 +166,15 @@ pub fn move_task(
                 WHERE column_id = ?1
                   AND position >= ?2
                   AND position < ?3
-                  AND id != ?4
                 ",
-                params![
-                    from_column_id,
-                    normalized_to_position,
-                    from_position,
-                    task_id
-                ],
+                params![from_column_id, normalized_to_position, from_position],
             )
             .map_err(|err| format!("failed to shift tasks up in same column: {err}"))?;
         }
 
         tx.execute(
-            "UPDATE tasks SET position = ?1 WHERE id = ?2",
-            params![normalized_to_position, task_id],
+            "UPDATE tasks SET column_id = ?1, position = ?2 WHERE id = ?3",
+            params![to_column_id, normalized_to_position, task_id],
         )
         .map_err(|err| format!("failed to reorder task in same column: {err}"))?;
     } else {
@@ -218,6 +209,11 @@ pub fn move_task(
         .map_err(|err| format!("failed to move task: {err}"))?;
     }
 
+    normalize_column_positions(&tx, from_column_id)?;
+    if from_column_id != to_column_id {
+        normalize_column_positions(&tx, to_column_id)?;
+    }
+
     tx.execute(
         "INSERT INTO task_history (task_id, from_column_id, to_column_id) VALUES (?1, ?2, ?3)",
         params![task_id, from_column_id, to_column_id],
@@ -226,6 +222,28 @@ pub fn move_task(
 
     tx.commit()
         .map_err(|err| format!("failed to commit transaction: {err}"))?;
+
+    Ok(())
+}
+
+fn normalize_column_positions(
+    tx: &rusqlite::Transaction<'_>,
+    column_id: i64,
+) -> Result<(), String> {
+    tx.execute(
+        "
+        WITH ranked AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY position ASC, id ASC) - 1 AS next_position
+          FROM tasks
+          WHERE column_id = ?1
+        )
+        UPDATE tasks
+        SET position = (SELECT next_position FROM ranked WHERE ranked.id = tasks.id)
+        WHERE column_id = ?1
+        ",
+        [column_id],
+    )
+    .map_err(|err| format!("failed to normalize column positions for {column_id}: {err}"))?;
 
     Ok(())
 }
