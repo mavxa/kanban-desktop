@@ -8,7 +8,7 @@ import type { ColumnData } from "./types";
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
 
-const THEME_STORAGE_KEY = "mavxa-kanban-theme";
+const THEME_STORAGE_KEY = "kanban-desktop-theme";
 
 const themeOptions: Array<{
   mode: ThemeMode;
