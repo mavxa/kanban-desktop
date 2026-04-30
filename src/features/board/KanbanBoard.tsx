@@ -1,4 +1,8 @@
-import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from "@dnd-kit/core";
+import type {
+  DragEndEvent,
+  DragStartEvent,
+  UniqueIdentifier,
+} from "@dnd-kit/core";
 import {
   DndContext,
   DragOverlay,
@@ -44,14 +48,26 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     return raw.startsWith("task-") ? raw.slice("task-".length) : raw;
   }, []);
 
-  const findColumnByTaskId = useCallback((taskId: UniqueIdentifier): ColumnData | undefined => {
-    return columnsRef.current.find((column) => column.tasks.some((task) => task.id === String(taskId)));
-  }, []);
+  const findColumnByTaskId = useCallback(
+    (taskId: UniqueIdentifier): ColumnData | undefined => {
+      return columnsRef.current.find((column) =>
+        column.tasks.some((task) => task.id === String(taskId)),
+      );
+    },
+    [],
+  );
 
-  const findColumnById = useCallback((columnId: string): ColumnData | undefined => {
-    const normalizedId = columnId.startsWith("column-") ? columnId.slice("column-".length) : columnId;
-    return columnsRef.current.find((column) => String(column.id) === normalizedId);
-  }, []);
+  const findColumnById = useCallback(
+    (columnId: string): ColumnData | undefined => {
+      const normalizedId = columnId.startsWith("column-")
+        ? columnId.slice("column-".length)
+        : columnId;
+      return columnsRef.current.find(
+        (column) => String(column.id) === normalizedId,
+      );
+    },
+    [],
+  );
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -61,7 +77,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
       const task = column?.tasks.find((item) => item.id === activeTaskId);
 
       if (column) {
-        const fromPosition = column.tasks.findIndex((item) => item.id === activeTaskId);
+        const fromPosition = column.tasks.findIndex(
+          (item) => item.id === activeTaskId,
+        );
         dragStartMetaRef.current = {
           fromColumnId: column.id,
           fromPosition,
@@ -99,12 +117,16 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
       let nextColumns: ColumnData[] | null = null;
 
       if (toColumn) {
-        const sourceColumn = currentColumns.find((column) => column.id === dragStartMeta.fromColumnId);
+        const sourceColumn = currentColumns.find(
+          (column) => column.id === dragStartMeta.fromColumnId,
+        );
         if (!sourceColumn) {
           return;
         }
 
-        const activeIndex = sourceColumn.tasks.findIndex((task) => task.id === activeId);
+        const activeIndex = sourceColumn.tasks.findIndex(
+          (task) => task.id === activeId,
+        );
         if (activeIndex === -1) {
           return;
         }
@@ -116,7 +138,11 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
             return;
           }
 
-          const reorderedTasks = arrayMove(sourceColumn.tasks, activeIndex, toPosition);
+          const reorderedTasks = arrayMove(
+            sourceColumn.tasks,
+            activeIndex,
+            toPosition,
+          );
           nextColumns = currentColumns.map((column) => {
             if (column.id === sourceColumn.id) {
               return { ...column, tasks: reorderedTasks };
@@ -126,7 +152,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         } else {
           const targetColumnId = toColumn.id;
           const movingTask = sourceColumn.tasks[activeIndex];
-          const sourceTasks = sourceColumn.tasks.filter((task) => task.id !== activeId);
+          const sourceTasks = sourceColumn.tasks.filter(
+            (task) => task.id !== activeId,
+          );
           const destinationTasks = [...toColumn.tasks, movingTask];
           toPosition = destinationTasks.length - 1;
 
@@ -146,17 +174,23 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           return;
         }
 
-        const sourceColumn = currentColumns.find((column) => column.id === dragStartMeta.fromColumnId);
+        const sourceColumn = currentColumns.find(
+          (column) => column.id === dragStartMeta.fromColumnId,
+        );
         if (!sourceColumn) {
           return;
         }
 
-        const activeIndex = sourceColumn.tasks.findIndex((task) => task.id === activeId);
+        const activeIndex = sourceColumn.tasks.findIndex(
+          (task) => task.id === activeId,
+        );
         if (activeIndex === -1) {
           return;
         }
 
-        toPosition = toColumn.tasks.findIndex((task) => task.id === getTaskId(overId));
+        toPosition = toColumn.tasks.findIndex(
+          (task) => task.id === getTaskId(overId),
+        );
 
         if (toPosition === -1) {
           return;
@@ -167,7 +201,11 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
             return;
           }
 
-          const reorderedTasks = arrayMove(sourceColumn.tasks, activeIndex, toPosition);
+          const reorderedTasks = arrayMove(
+            sourceColumn.tasks,
+            activeIndex,
+            toPosition,
+          );
           nextColumns = currentColumns.map((column) => {
             if (column.id === sourceColumn.id) {
               return { ...column, tasks: reorderedTasks };
@@ -177,7 +215,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         } else {
           const targetColumnId = toColumn.id;
           const movingTask = sourceColumn.tasks[activeIndex];
-          const sourceTasks = sourceColumn.tasks.filter((task) => task.id !== activeId);
+          const sourceTasks = sourceColumn.tasks.filter(
+            (task) => task.id !== activeId,
+          );
           const destinationTasks = [...toColumn.tasks];
           destinationTasks.splice(toPosition, 0, movingTask);
 
@@ -201,7 +241,10 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         return;
       }
 
-      if (dragStartMeta.fromColumnId === toColumn.id && dragStartMeta.fromPosition === toPosition) {
+      if (
+        dragStartMeta.fromColumnId === toColumn.id &&
+        dragStartMeta.fromPosition === toPosition
+      ) {
         return;
       }
 

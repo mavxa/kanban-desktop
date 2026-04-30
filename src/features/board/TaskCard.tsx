@@ -18,12 +18,17 @@ interface TaskCardPreviewProps {
 }
 
 const priorityStyles: Record<Priority, string> = {
-  low: "bg-zinc-800 text-zinc-400",
+  low: "bg-surface-hover text-muted",
   medium: "bg-yellow-900/30 text-warning",
   high: "bg-red-900/30 text-danger",
 };
 
-function TaskCardContent({ title, description, priority, tags }: TaskCardPreviewProps) {
+function TaskCardContent({
+  title,
+  description,
+  priority,
+  tags,
+}: TaskCardPreviewProps) {
   return (
     <>
       <div className="mb-2 flex items-center gap-2">
@@ -34,18 +39,20 @@ function TaskCardContent({ title, description, priority, tags }: TaskCardPreview
         </span>
       </div>
 
-      <h3 className="text-sm font-medium text-zinc-100 transition-colors group-hover:text-white">
+      <h3 className="text-sm font-medium text-foreground transition-colors">
         {title}
       </h3>
 
-      {description ? <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{description}</p> : null}
+      {description ? (
+        <p className="mt-1 line-clamp-2 text-xs text-muted">{description}</p>
+      ) : null}
 
       {tags.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1">
           {tags.map((tag) => (
             <span
               key={tag}
-              className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500"
+              className="rounded border border-border bg-surface-hover px-1.5 py-0.5 text-[10px] font-mono text-muted"
             >
               {tag}
             </span>
@@ -56,16 +63,39 @@ function TaskCardContent({ title, description, priority, tags }: TaskCardPreview
   );
 }
 
-export function TaskCardPreview({ title, description, priority, tags }: TaskCardPreviewProps) {
+export function TaskCardPreview({
+  title,
+  description,
+  priority,
+  tags,
+}: TaskCardPreviewProps) {
   return (
-    <div className="group rounded-lg border border-border bg-surface p-3 shadow-2xl shadow-black/50 ring-1 ring-accent/30">
-      <TaskCardContent title={title} description={description} priority={priority} tags={tags} />
+    <div className="group rounded-2xl border border-border bg-surface p-3 shadow-2xl shadow-black/50 ring-1 ring-accent/30">
+      <TaskCardContent
+        title={title}
+        description={description}
+        priority={priority}
+        tags={tags}
+      />
     </div>
   );
 }
 
-export function TaskCard({ id, title, description, priority, tags }: TaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+export function TaskCard({
+  id,
+  title,
+  description,
+  priority,
+  tags,
+}: TaskCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -77,8 +107,12 @@ export function TaskCard({ id, title, description, priority, tags }: TaskCardPro
       <div
         ref={setNodeRef}
         style={style}
-        className="min-h-16 rounded-lg border border-dashed border-accent/20 bg-surface/50 p-3"
-      />
+        className="min-h-20 rounded-2xl border border-dashed border-accent/20 bg-surface/50 p-13"
+      >
+        <p className="flex items-center justify-center font-mono text-xs text-accent/50">
+          Drag on
+        </p>
+      </div>
     );
   }
 
@@ -88,9 +122,14 @@ export function TaskCard({ id, title, description, priority, tags }: TaskCardPro
       style={style}
       {...attributes}
       {...listeners}
-      className="group cursor-grab rounded-lg border border-border bg-surface p-3 transition-all duration-200 hover:border-border-hover active:cursor-grabbing"
+      className="group cursor-grab rounded-2xl border border-border bg-surface p-3 transition-all duration-200 hover:border-border-hover active:cursor-grabbing"
     >
-      <TaskCardContent title={title} description={description} priority={priority} tags={tags} />
+      <TaskCardContent
+        title={title}
+        description={description}
+        priority={priority}
+        tags={tags}
+      />
     </div>
   );
 }

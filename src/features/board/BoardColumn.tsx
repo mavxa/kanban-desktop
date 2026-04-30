@@ -1,5 +1,8 @@
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { TaskCard } from "./TaskCard";
 import type { TaskData } from "./types";
 
@@ -25,8 +28,10 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
     <div className="flex w-72 shrink-0 flex-col">
       <div className="flex items-center justify-between px-2 pb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">{title}</h2>
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-zinc-900 text-xs font-mono text-zinc-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+            {title}
+          </h2>
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-surface-hover text-xs font-mono text-muted">
             {tasks.length}
           </span>
         </div>
@@ -38,7 +43,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
                 ? "bg-red-900/30 text-danger"
                 : isAtLimit
                   ? "bg-yellow-900/30 text-warning"
-                  : "bg-zinc-900 text-zinc-500"
+                  : "bg-surface-hover text-muted"
             }`}
           >
             WIP: {wipLimit}
@@ -46,15 +51,18 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
         ) : null}
       </div>
 
-      <SortableContext items={sortableTaskIds} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={sortableTaskIds}
+        strategy={verticalListSortingStrategy}
+      >
         <div
           ref={setNodeRef}
-          className={`flex min-h-32 flex-col gap-2 rounded-lg border border-dashed p-2 transition-colors duration-200 ${
+          className={`flex min-h-35 flex-col gap-2 rounded-3xl border border-dashed p-2 transition-colors duration-200 ${
             isOver
               ? "border-accent/50 bg-emerald-950/10"
               : isOverLimit
                 ? "border-danger/30 bg-red-950/10"
-                : "border-border bg-zinc-900/30"
+                : "border-border bg-surface/40"
           }`}
         >
           {tasks.map((task) => (
@@ -69,7 +77,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
           ))}
 
           {tasks.length === 0 ? (
-            <div className="flex h-20 items-center justify-center font-mono text-xs text-zinc-600">
+            <div className="flex h-30 items-center justify-center font-mono text-xs text-muted-subtle">
               No tasks
             </div>
           ) : null}
