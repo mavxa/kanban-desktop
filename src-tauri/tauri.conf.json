@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "mavxa kanban-desktop",
-  "version": "0.1.0",
-  "identifier": "mavxa.kanbandesktop",
+  "productName": "Mavxa Kanban",
+  "version": "../package.json",
+  "identifier": "ru.mavxa.kanban",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "mavxa kanban-desktop",
+        "title": "Mavxa Kanban",
         "width": 800,
         "height": 600,
         "resizable": true,
