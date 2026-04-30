@@ -5,11 +5,14 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
-    permissions:
-      contents: write
-
     strategy:
       fail-fast: false
       matrix:
