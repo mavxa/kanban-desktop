@@ -21,6 +21,16 @@ struct ColumnDto {
     tasks: Vec<TaskDto>,
 }
 
+fn task_row_to_dto(task: db::repo::TaskRow) -> TaskDto {
+    TaskDto {
+        id: task.id.to_string(),
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        tags: task.tags,
+    }
+}
+
 #[tauri::command]
 fn get_board_data(app: tauri::AppHandle) -> Result<Vec<ColumnDto>, String> {
     let conn = db::connect_with_bootstrap(&app)?;
@@ -32,19 +42,23 @@ fn get_board_data(app: tauri::AppHandle) -> Result<Vec<ColumnDto>, String> {
             id: column.id,
             title: column.title,
             wip_limit: column.wip_limit,
-            tasks: column
-                .tasks
-                .into_iter()
-                .map(|task| TaskDto {
-                    id: task.id.to_string(),
-                    title: task.title,
-                    description: task.description,
-                    priority: task.priority,
-                    tags: task.tags,
-                })
-                .collect(),
+            tasks: column.tasks.into_iter().map(task_row_to_dto).collect(),
         })
         .collect())
+}
+
+#[tauri::command]
+fn create_task(
+    app: tauri::AppHandle,
+    column_id: i64,
+    title: String,
+    description: Option<String>,
+    priority: String,
+    tags: Vec<String>,
+) -> Result<TaskDto, String> {
+    let mut conn = db::connect_with_bootstrap(&app)?;
+    db::repo::create_task(&mut conn, column_id, title, description, priority, tags)
+        .map(task_row_to_dto)
 }
 
 #[tauri::command]
@@ -73,7 +87,11 @@ pub fn run() {
             let _ = db::connect_with_bootstrap(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_board_data, move_task])
+        .invoke_handler(tauri::generate_handler![
+            get_board_data,
+            create_task,
+            move_task
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 #[derive(Debug, Clone)]
 pub struct TaskRow {
@@ -108,6 +108,112 @@ pub fn get_board_data(conn: &Connection) -> Result<Vec<ColumnRow>, String> {
     }
 
     Ok(result)
+}
+
+pub fn create_task(
+    conn: &mut Connection,
+    column_id: i64,
+    title: String,
+    description: Option<String>,
+    priority: String,
+    tags: Vec<String>,
+) -> Result<TaskRow, String> {
+    let normalized_title = title.trim().to_string();
+    if normalized_title.is_empty() {
+        return Err("task title cannot be empty".to_string());
+    }
+
+    let normalized_priority = match priority.as_str() {
+        "low" | "medium" | "high" => priority,
+        _ => return Err("task priority must be low, medium, or high".to_string()),
+    };
+
+    let normalized_description = description.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+    let normalized_tags = normalize_tags(tags);
+
+    let tx = conn
+        .transaction()
+        .map_err(|err| format!("failed to start transaction: {err}"))?;
+
+    let board_id: i64 = tx
+        .query_row(
+            "SELECT board_id FROM columns WHERE id = ?1",
+            [column_id],
+            |row| row.get(0),
+        )
+        .map_err(|err| format!("failed to resolve target column: {err}"))?;
+
+    let position: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE column_id = ?1",
+            [column_id],
+            |row| row.get(0),
+        )
+        .map_err(|err| format!("failed to count tasks in target column: {err}"))?;
+
+    tx.execute(
+        "
+        INSERT INTO tasks (column_id, title, description, priority, position)
+        VALUES (?1, ?2, ?3, ?4, ?5)
+        ",
+        params![
+            column_id,
+            normalized_title,
+            normalized_description,
+            normalized_priority,
+            position
+        ],
+    )
+    .map_err(|err| format!("failed to insert task: {err}"))?;
+
+    let task_id = tx.last_insert_rowid();
+
+    for tag_name in &normalized_tags {
+        let tag_id = tx
+            .query_row(
+                "SELECT id FROM tags WHERE board_id = ?1 AND name = ?2 ORDER BY id LIMIT 1",
+                params![board_id, tag_name],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(|err| format!("failed to resolve tag {tag_name}: {err}"))?;
+
+        let tag_id = match tag_id {
+            Some(id) => id,
+            None => {
+                tx.execute(
+                    "INSERT INTO tags (board_id, name) VALUES (?1, ?2)",
+                    params![board_id, tag_name],
+                )
+                .map_err(|err| format!("failed to insert tag {tag_name}: {err}"))?;
+                tx.last_insert_rowid()
+            }
+        };
+
+        tx.execute(
+            "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+            params![task_id, tag_id],
+        )
+        .map_err(|err| format!("failed to attach tag {tag_name}: {err}"))?;
+    }
+
+    tx.commit()
+        .map_err(|err| format!("failed to commit transaction: {err}"))?;
+
+    Ok(TaskRow {
+        id: task_id,
+        title: normalized_title,
+        description: normalized_description,
+        priority: normalized_priority,
+        tags: normalized_tags,
+    })
 }
 
 pub fn move_task(
@@ -246,4 +352,19 @@ fn normalize_column_positions(
     .map_err(|err| format!("failed to normalize column positions for {column_id}: {err}"))?;
 
     Ok(())
+}
+
+fn normalize_tags(tags: Vec<String>) -> Vec<String> {
+    let mut normalized_tags = Vec::new();
+
+    for tag in tags {
+        let name = tag.trim().trim_start_matches('#').to_lowercase();
+        if name.is_empty() || normalized_tags.contains(&name) {
+            continue;
+        }
+
+        normalized_tags.push(name);
+    }
+
+    normalized_tags
 }

@@ -21,6 +21,7 @@ import type { ColumnData, TaskData } from "./types";
 
 interface KanbanBoardProps {
   initialColumns: ColumnData[];
+  onColumnsChange?: (columns: ColumnData[]) => void;
 }
 
 interface DragStartMeta {
@@ -28,7 +29,10 @@ interface DragStartMeta {
   fromPosition: number;
 }
 
-export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
+export function KanbanBoard({
+  initialColumns,
+  onColumnsChange,
+}: KanbanBoardProps) {
   const [columns, setColumns] = useState<ColumnData[]>(initialColumns);
   const [activeTask, setActiveTask] = useState<TaskData | null>(null);
   const dragStartMetaRef = useRef<DragStartMeta | null>(null);
@@ -251,6 +255,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
       if (nextColumns) {
         columnsRef.current = nextColumns;
         setColumns(nextColumns);
+        onColumnsChange?.(nextColumns);
       }
 
       void moveTask({
@@ -259,7 +264,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         toPosition,
       });
     },
-    [findColumnById, findColumnByTaskId, getTaskId],
+    [findColumnById, findColumnByTaskId, getTaskId, onColumnsChange],
   );
 
   return (

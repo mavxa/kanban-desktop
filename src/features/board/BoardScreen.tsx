@@ -1,14 +1,30 @@
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { MdBrightnessAuto, MdDarkMode, MdLightMode } from "react-icons/md";
-import { getBoardData } from "./api";
+import {
+  MdAdd,
+  MdBrightnessAuto,
+  MdClose,
+  MdDarkMode,
+  MdLightMode,
+} from "react-icons/md";
+import { createTask, getBoardData } from "./api";
 import { KanbanBoard } from "./KanbanBoard";
 import { FALLBACK_COLUMNS } from "./mock-data";
-import type { ColumnData } from "./types";
+import type { ColumnData, Priority } from "./types";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
 
 const THEME_STORAGE_KEY = "kanban-desktop-theme";
+const priorities: Priority[] = ["low", "medium", "high"];
+
+interface NewTaskDraft {
+  columnId: number;
+  title: string;
+  description: string;
+  priority: Priority;
+  tags: string;
+}
 
 const themeOptions: Array<{
   mode: ThemeMode;
@@ -47,6 +63,29 @@ function resolveTheme(mode: ThemeMode): ResolvedTheme {
     : "dark";
 }
 
+function createEmptyTaskDraft(columnId: number): NewTaskDraft {
+  return {
+    columnId,
+    title: "",
+    description: "",
+    priority: "medium",
+    tags: "",
+  };
+}
+
+function parseTags(value: string) {
+  const tags = new Set<string>();
+
+  for (const tag of value.split(",")) {
+    const normalizedTag = tag.trim().replace(/^#/, "").toLowerCase();
+    if (normalizedTag) {
+      tags.add(normalizedTag);
+    }
+  }
+
+  return Array.from(tags);
+}
+
 export function BoardScreen() {
   const [columns, setColumns] = useState<ColumnData[]>(FALLBACK_COLUMNS);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +93,12 @@ export function BoardScreen() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
     resolveTheme(getInitialThemeMode()),
+  );
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [createTaskError, setCreateTaskError] = useState<string | null>(null);
+  const [newTaskDraft, setNewTaskDraft] = useState<NewTaskDraft>(() =>
+    createEmptyTaskDraft(FALLBACK_COLUMNS[0]?.id ?? 0),
   );
 
   useEffect(() => {
@@ -105,6 +150,74 @@ export function BoardScreen() {
     };
   }, [themeMode]);
 
+  useEffect(() => {
+    if (columns.length === 0) {
+      return;
+    }
+
+    setNewTaskDraft((draft) => {
+      if (columns.some((column) => column.id === draft.columnId)) {
+        return draft;
+      }
+
+      return { ...draft, columnId: columns[0].id };
+    });
+  }, [columns]);
+
+  function openCreateTaskDialog() {
+    setCreateTaskError(null);
+    setNewTaskDraft((draft) => ({
+      ...draft,
+      columnId: columns[0]?.id ?? draft.columnId,
+    }));
+    setIsCreateTaskOpen(true);
+  }
+
+  async function handleCreateTaskSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const title = newTaskDraft.title.trim();
+    if (!title) {
+      setCreateTaskError("Title is required.");
+      return;
+    }
+
+    setIsCreatingTask(true);
+    setCreateTaskError(null);
+
+    try {
+      const createdTask = await createTask({
+        columnId: newTaskDraft.columnId,
+        title,
+        description: newTaskDraft.description.trim() || undefined,
+        priority: newTaskDraft.priority,
+        tags: parseTags(newTaskDraft.tags),
+      });
+
+      setColumns((currentColumns) =>
+        currentColumns.map((column) => {
+          if (column.id !== newTaskDraft.columnId) {
+            return column;
+          }
+
+          return {
+            ...column,
+            tasks: [...column.tasks, createdTask],
+          };
+        }),
+      );
+      setBoardRevision((value) => value + 1);
+      setNewTaskDraft(createEmptyTaskDraft(newTaskDraft.columnId));
+      setIsCreateTaskOpen(false);
+    } catch (error) {
+      setCreateTaskError(
+        error instanceof Error ? error.message : "Failed to create task.",
+      );
+    } finally {
+      setIsCreatingTask(false);
+    }
+  }
+
   return (
     <section className="flex h-screen flex-col overflow-hidden bg-background text-foreground antialiased">
       <header className="flex items-center justify-between border-b border-border bg-surface/50 px-6 py-3 backdrop-blur">
@@ -126,8 +239,11 @@ export function BoardScreen() {
           </button>
           <button
             type="button"
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-all duration-200 hover:bg-accent-hover"
+            onClick={openCreateTaskDialog}
+            disabled={columns.length === 0}
+            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-all duration-200 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <MdAdd className="text-base" />
             New Task
           </button>
           <div
@@ -166,9 +282,159 @@ export function BoardScreen() {
             Loading board...
           </div>
         ) : (
-          <KanbanBoard key={boardRevision} initialColumns={columns} />
+          <KanbanBoard
+            key={boardRevision}
+            initialColumns={columns}
+            onColumnsChange={setColumns}
+          />
         )}
       </main>
+
+      {isCreateTaskOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={handleCreateTaskSubmit}
+            className="w-full max-w-md rounded-2xl border border-border bg-surface p-4 shadow-2xl shadow-black/40"
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-foreground">
+                New Task
+              </h2>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setIsCreateTaskOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+              >
+                <MdClose />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Column
+                </span>
+                <select
+                  value={newTaskDraft.columnId}
+                  onChange={(event) =>
+                    setNewTaskDraft((draft) => ({
+                      ...draft,
+                      columnId: Number(event.target.value),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
+                >
+                  {columns.map((column) => (
+                    <option key={column.id} value={column.id}>
+                      {column.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Title
+                </span>
+                <input
+                  value={newTaskDraft.title}
+                  onChange={(event) =>
+                    setNewTaskDraft((draft) => ({
+                      ...draft,
+                      title: event.target.value,
+                    }))
+                  }
+                  autoFocus
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                  placeholder="Task title"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Description
+                </span>
+                <textarea
+                  value={newTaskDraft.description}
+                  onChange={(event) =>
+                    setNewTaskDraft((draft) => ({
+                      ...draft,
+                      description: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                  placeholder="Optional details"
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">
+                    Priority
+                  </span>
+                  <select
+                    value={newTaskDraft.priority}
+                    onChange={(event) =>
+                      setNewTaskDraft((draft) => ({
+                        ...draft,
+                        priority: event.target.value as Priority,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
+                  >
+                    {priorities.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {priority}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">
+                    Tags
+                  </span>
+                  <input
+                    value={newTaskDraft.tags}
+                    onChange={(event) =>
+                      setNewTaskDraft((draft) => ({
+                        ...draft,
+                        tags: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                    placeholder="ui, backend"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {createTaskError ? (
+              <p className="mt-3 text-xs text-danger">{createTaskError}</p>
+            ) : null}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreateTaskOpen(false)}
+                className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:border-border-hover hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isCreatingTask}
+                className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <MdAdd className="text-base" />
+                {isCreatingTask ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }

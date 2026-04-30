@@ -20,3 +20,11 @@ export interface MoveTaskInput {
   toColumnId: number;
   toPosition: number;
 }
+
+export interface CreateTaskInput {
+  columnId: number;
+  title: string;
+  description?: string;
+  priority: Priority;
+  tags: string[];
+}

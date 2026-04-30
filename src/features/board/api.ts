@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { FALLBACK_COLUMNS } from "./mock-data";
-import type { ColumnData, MoveTaskInput } from "./types";
+import type { ColumnData, CreateTaskInput, MoveTaskInput, TaskData } from "./types";
 
 function hasTauriBridge() {
   if (typeof window === "undefined") {
@@ -37,4 +37,24 @@ export async function moveTask(input: MoveTaskInput): Promise<void> {
   } catch (error) {
     console.error("Failed to persist task move", error);
   }
+}
+
+export async function createTask(input: CreateTaskInput): Promise<TaskData> {
+  if (!hasTauriBridge()) {
+    return {
+      id: `local-${Date.now()}`,
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      tags: input.tags,
+    };
+  }
+
+  return await invoke<TaskData>("create_task", {
+    columnId: input.columnId,
+    title: input.title,
+    description: input.description,
+    priority: input.priority,
+    tags: input.tags,
+  });
 }
