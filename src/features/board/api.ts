@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { FALLBACK_COLUMNS } from "./mock-data";
-import type { ColumnData, CreateTaskInput, MoveTaskInput, TaskData } from "./types";
+import type {
+  ColumnData,
+  CreateTaskInput,
+  MoveTaskInput,
+  TaskData,
+} from "./types";
 
 function hasTauriBridge() {
   if (typeof window === "undefined") {

@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -15,6 +16,7 @@ import type { ColumnData, Priority, NewTaskDraft } from "./types";
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
 
+const boardQueryKey = ["board"] as const;
 const THEME_STORAGE_KEY = "kanban-desktop-theme";
 const priorities: Priority[] = ["low", "medium", "high"];
 
@@ -79,8 +81,7 @@ function parseTags(value: string) {
 }
 
 export function BoardScreen() {
-  const [columns, setColumns] = useState<ColumnData[]>(FALLBACK_COLUMNS);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [boardRevision, setBoardRevision] = useState(0);
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
@@ -93,29 +94,16 @@ export function BoardScreen() {
     createEmptyTaskDraft(FALLBACK_COLUMNS[0]?.id ?? 0),
   );
 
-  useEffect(() => {
-    let isDisposed = false;
+  const { isLoading, data: columns = FALLBACK_COLUMNS } = useQuery({
+    queryKey: boardQueryKey,
+    queryFn: getBoardData,
+    select: (boardColumns) =>
+      boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS,
+  });
 
-    async function load() {
-      try {
-        const boardColumns = await getBoardData();
-        if (!isDisposed) {
-          setColumns(boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS);
-          setBoardRevision((value) => value + 1);
-        }
-      } finally {
-        if (!isDisposed) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      isDisposed = true;
-    };
-  }, []);
+  function updateBoardColumns(nextColumns: ColumnData[]) {
+    queryClient.setQueryData(boardQueryKey, nextColumns);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -186,18 +174,19 @@ export function BoardScreen() {
         tags: parseTags(newTaskDraft.tags),
       });
 
-      setColumns((currentColumns) =>
-        currentColumns.map((column) => {
-          if (column.id !== newTaskDraft.columnId) {
-            return column;
-          }
+      const nextColumns = columns.map((column) => {
+        if (column.id !== newTaskDraft.columnId) {
+          return column;
+        }
 
-          return {
-            ...column,
-            tasks: [...column.tasks, createdTask],
-          };
-        }),
-      );
+        return {
+          ...column,
+          tasks: [...column.tasks, createdTask],
+        };
+      });
+
+      updateBoardColumns(nextColumns);
+
       setBoardRevision((value) => value + 1);
       setNewTaskDraft(createEmptyTaskDraft(newTaskDraft.columnId));
       setIsCreateTaskOpen(false);
@@ -277,7 +266,7 @@ export function BoardScreen() {
           <KanbanBoard
             key={boardRevision}
             initialColumns={columns}
-            onColumnsChange={setColumns}
+            onColumnsChange={updateBoardColumns}
           />
         )}
       </main>
