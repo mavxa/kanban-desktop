@@ -10,21 +10,13 @@ import {
 import { createTask, getBoardData } from "./api";
 import { KanbanBoard } from "./KanbanBoard";
 import { FALLBACK_COLUMNS } from "./mock-data";
-import type { ColumnData, Priority } from "./types";
+import type { ColumnData, Priority, NewTaskDraft } from "./types";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
 
 const THEME_STORAGE_KEY = "kanban-desktop-theme";
 const priorities: Priority[] = ["low", "medium", "high"];
-
-interface NewTaskDraft {
-  columnId: number;
-  title: string;
-  description: string;
-  priority: Priority;
-  tags: string;
-}
 
 const themeOptions: Array<{
   mode: ThemeMode;

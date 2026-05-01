@@ -28,3 +28,11 @@ export interface CreateTaskInput {
   priority: Priority;
   tags: string[];
 }
+
+export interface NewTaskDraft {
+  columnId: number;
+  title: string;
+  description: string;
+  priority: Priority;
+  tags: string;
+}
