@@ -1,14 +1,7 @@
 import { BoardScreen } from "./features/board/BoardScreen";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-const queryClient = new QueryClient();
 
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BoardScreen />
-    </QueryClientProvider>
-  );
+  return <BoardScreen />;
 }
 
 export default App;

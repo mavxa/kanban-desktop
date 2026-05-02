@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -88,8 +88,9 @@ export function BoardScreen() {
     resolveTheme(getInitialThemeMode()),
   );
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const [createTaskError, setCreateTaskError] = useState<string | null>(null);
+  const [createTaskValidationError, setCreateTaskValidationError] = useState<
+    string | null
+  >(null);
   const [newTaskDraft, setNewTaskDraft] = useState<NewTaskDraft>(() =>
     createEmptyTaskDraft(FALLBACK_COLUMNS[0]?.id ?? 0),
   );
@@ -100,10 +101,36 @@ export function BoardScreen() {
     select: (boardColumns) =>
       boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS,
   });
+  const selectedColumnId = columns.some(
+    (column) => column.id === newTaskDraft.columnId,
+  )
+    ? newTaskDraft.columnId
+    : (columns[0]?.id ?? 0);
 
   function updateBoardColumns(nextColumns: ColumnData[]) {
     queryClient.setQueryData(boardQueryKey, nextColumns);
   }
+
+  const createTaskMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: (createdTask) => {
+      const nextColumns = columns.map((column) => {
+        if (column.id !== selectedColumnId) {
+          return column;
+        }
+
+        return {
+          ...column,
+          tasks: [...column.tasks, createdTask],
+        };
+      });
+
+      updateBoardColumns(nextColumns);
+      setBoardRevision((value) => value + 1);
+      setNewTaskDraft(createEmptyTaskDraft(selectedColumnId));
+      setIsCreateTaskOpen(false);
+    },
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -130,25 +157,12 @@ export function BoardScreen() {
     };
   }, [themeMode]);
 
-  useEffect(() => {
-    if (columns.length === 0) {
-      return;
-    }
-
-    setNewTaskDraft((draft) => {
-      if (columns.some((column) => column.id === draft.columnId)) {
-        return draft;
-      }
-
-      return { ...draft, columnId: columns[0].id };
-    });
-  }, [columns]);
-
   function openCreateTaskDialog() {
-    setCreateTaskError(null);
+    createTaskMutation.reset();
+    setCreateTaskValidationError(null);
     setNewTaskDraft((draft) => ({
       ...draft,
-      columnId: columns[0]?.id ?? draft.columnId,
+      columnId: selectedColumnId,
     }));
     setIsCreateTaskOpen(true);
   }
@@ -158,45 +172,18 @@ export function BoardScreen() {
 
     const title = newTaskDraft.title.trim();
     if (!title) {
-      setCreateTaskError("Title is required.");
+      setCreateTaskValidationError("Title is required.");
       return;
     }
+    setCreateTaskValidationError(null);
 
-    setIsCreatingTask(true);
-    setCreateTaskError(null);
-
-    try {
-      const createdTask = await createTask({
-        columnId: newTaskDraft.columnId,
-        title,
-        description: newTaskDraft.description.trim() || undefined,
-        priority: newTaskDraft.priority,
-        tags: parseTags(newTaskDraft.tags),
-      });
-
-      const nextColumns = columns.map((column) => {
-        if (column.id !== newTaskDraft.columnId) {
-          return column;
-        }
-
-        return {
-          ...column,
-          tasks: [...column.tasks, createdTask],
-        };
-      });
-
-      updateBoardColumns(nextColumns);
-
-      setBoardRevision((value) => value + 1);
-      setNewTaskDraft(createEmptyTaskDraft(newTaskDraft.columnId));
-      setIsCreateTaskOpen(false);
-    } catch (error) {
-      setCreateTaskError(
-        error instanceof Error ? error.message : "Failed to create task.",
-      );
-    } finally {
-      setIsCreatingTask(false);
-    }
+    createTaskMutation.mutate({
+      columnId: selectedColumnId,
+      title,
+      description: newTaskDraft.description.trim() || undefined,
+      priority: newTaskDraft.priority,
+      tags: parseTags(newTaskDraft.tags),
+    });
   }
 
   return (
@@ -297,7 +284,7 @@ export function BoardScreen() {
                   Column
                 </span>
                 <select
-                  value={newTaskDraft.columnId}
+                  value={selectedColumnId}
                   onChange={(event) =>
                     setNewTaskDraft((draft) => ({
                       ...draft,
@@ -392,8 +379,13 @@ export function BoardScreen() {
               </div>
             </div>
 
-            {createTaskError ? (
-              <p className="mt-3 text-xs text-danger">{createTaskError}</p>
+            {createTaskValidationError || createTaskMutation.error ? (
+              <p className="mt-3 text-xs text-danger">
+                {createTaskValidationError ??
+                (createTaskMutation.error instanceof Error
+                  ? createTaskMutation.error.message
+                  : "Failed to create task.")}
+              </p>
             ) : null}
 
             <div className="mt-5 flex justify-end gap-2">
@@ -406,11 +398,11 @@ export function BoardScreen() {
               </button>
               <button
                 type="submit"
-                disabled={isCreatingTask}
+                disabled={createTaskMutation.isPending}
                 className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <MdAdd className="text-base" />
-                {isCreatingTask ? "Creating..." : "Create"}
+                {createTaskMutation.isPending ? "Creating..." : "Create"}
               </button>
             </div>
           </form>
