@@ -1,6 +1,5 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -8,15 +7,18 @@ import {
   MdDarkMode,
   MdLightMode,
 } from "react-icons/md";
-import { createTask, getBoardData } from "./api";
 import { KanbanBoard } from "./KanbanBoard";
 import { FALLBACK_COLUMNS } from "./mock-data";
-import type { ColumnData, Priority, NewTaskDraft } from "./types";
+import {
+  useBoardDataQuery,
+  useCreateTaskMutation,
+  useUpdateBoardColumns,
+} from "./queries";
+import type { Priority, NewTaskDraft } from "./types";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
 
-const boardQueryKey = ["board"] as const;
 const THEME_STORAGE_KEY = "kanban-desktop-theme";
 const priorities: Priority[] = ["low", "medium", "high"];
 
@@ -81,7 +83,6 @@ function parseTags(value: string) {
 }
 
 export function BoardScreen() {
-  const queryClient = useQueryClient();
   const [boardRevision, setBoardRevision] = useState(0);
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
@@ -95,24 +96,15 @@ export function BoardScreen() {
     createEmptyTaskDraft(FALLBACK_COLUMNS[0]?.id ?? 0),
   );
 
-  const { isLoading, data: columns = FALLBACK_COLUMNS } = useQuery({
-    queryKey: boardQueryKey,
-    queryFn: getBoardData,
-    select: (boardColumns) =>
-      boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS,
-  });
+  const { isLoading, data: columns = FALLBACK_COLUMNS } = useBoardDataQuery();
   const selectedColumnId = columns.some(
     (column) => column.id === newTaskDraft.columnId,
   )
     ? newTaskDraft.columnId
     : (columns[0]?.id ?? 0);
 
-  function updateBoardColumns(nextColumns: ColumnData[]) {
-    queryClient.setQueryData(boardQueryKey, nextColumns);
-  }
-
-  const createTaskMutation = useMutation({
-    mutationFn: createTask,
+  const updateBoardColumns = useUpdateBoardColumns();
+  const createTaskMutation = useCreateTaskMutation({
     onSuccess: (createdTask) => {
       const nextColumns = columns.map((column) => {
         if (column.id !== selectedColumnId) {
@@ -382,9 +374,9 @@ export function BoardScreen() {
             {createTaskValidationError || createTaskMutation.error ? (
               <p className="mt-3 text-xs text-danger">
                 {createTaskValidationError ??
-                (createTaskMutation.error instanceof Error
-                  ? createTaskMutation.error.message
-                  : "Failed to create task.")}
+                  (createTaskMutation.error instanceof Error
+                    ? createTaskMutation.error.message
+                    : "Failed to create task.")}
               </p>
             ) : null}
 

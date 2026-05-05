@@ -17,17 +17,12 @@ import { useCallback, useRef, useState } from "react";
 import { moveTask } from "./api";
 import { BoardColumn } from "./BoardColumn";
 import { TaskCardPreview } from "./TaskCard";
-import type { ColumnData, TaskData } from "./types";
-
-interface KanbanBoardProps {
-  initialColumns: ColumnData[];
-  onColumnsChange?: (columns: ColumnData[]) => void;
-}
-
-interface DragStartMeta {
-  fromColumnId: number;
-  fromPosition: number;
-}
+import type {
+  ColumnData,
+  TaskData,
+  KanbanBoardProps,
+  DragStartMeta,
+} from "./types";
 
 export function KanbanBoard({
   initialColumns,

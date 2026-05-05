@@ -4,14 +4,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { TaskCard } from "./TaskCard";
-import type { TaskData } from "./types";
-
-interface BoardColumnProps {
-  id: number;
-  title: string;
-  wipLimit: number;
-  tasks: TaskData[];
-}
+import type { BoardColumnProps } from "./types";
 
 export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
   const isOverLimit = wipLimit > 0 && tasks.length > wipLimit;
