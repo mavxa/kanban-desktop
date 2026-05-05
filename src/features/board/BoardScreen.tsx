@@ -1,5 +1,5 @@
-import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -14,7 +14,9 @@ import {
   useCreateTaskMutation,
   useUpdateBoardColumns,
 } from "./queries";
-import type { Priority, NewTaskDraft } from "./types";
+import { createTaskFormSchema } from "./schemas";
+import type { CreateTaskFormValues } from "./schemas";
+import type { Priority } from "./types";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
@@ -59,7 +61,7 @@ function resolveTheme(mode: ThemeMode): ResolvedTheme {
     : "dark";
 }
 
-function createEmptyTaskDraft(columnId: number): NewTaskDraft {
+function createEmptyTaskFormValues(columnId: number): CreateTaskFormValues {
   return {
     columnId,
     title: "",
@@ -82,6 +84,18 @@ function parseTags(value: string) {
   return Array.from(tags);
 }
 
+function getErrorMessage(error: unknown) {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+
+  return "Invalid value.";
+}
+
 export function BoardScreen() {
   const [boardRevision, setBoardRevision] = useState(0);
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
@@ -89,25 +103,15 @@ export function BoardScreen() {
     resolveTheme(getInitialThemeMode()),
   );
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [createTaskValidationError, setCreateTaskValidationError] = useState<
-    string | null
-  >(null);
-  const [newTaskDraft, setNewTaskDraft] = useState<NewTaskDraft>(() =>
-    createEmptyTaskDraft(FALLBACK_COLUMNS[0]?.id ?? 0),
-  );
 
   const { isLoading, data: columns = FALLBACK_COLUMNS } = useBoardDataQuery();
-  const selectedColumnId = columns.some(
-    (column) => column.id === newTaskDraft.columnId,
-  )
-    ? newTaskDraft.columnId
-    : (columns[0]?.id ?? 0);
+  const defaultColumnId = columns[0]?.id ?? FALLBACK_COLUMNS[0]?.id ?? 0;
 
   const updateBoardColumns = useUpdateBoardColumns();
   const createTaskMutation = useCreateTaskMutation({
-    onSuccess: (createdTask) => {
+    onSuccess: (createdTask, input) => {
       const nextColumns = columns.map((column) => {
-        if (column.id !== selectedColumnId) {
+        if (column.id !== input.columnId) {
           return column;
         }
 
@@ -119,8 +123,24 @@ export function BoardScreen() {
 
       updateBoardColumns(nextColumns);
       setBoardRevision((value) => value + 1);
-      setNewTaskDraft(createEmptyTaskDraft(selectedColumnId));
+      createTaskForm.reset(createEmptyTaskFormValues(input.columnId));
       setIsCreateTaskOpen(false);
+    },
+  });
+
+  const createTaskForm = useForm({
+    defaultValues: createEmptyTaskFormValues(defaultColumnId),
+    validators: {
+      onSubmit: createTaskFormSchema,
+    },
+    onSubmit: ({ value }) => {
+      createTaskMutation.mutate({
+        columnId: value.columnId,
+        title: value.title.trim(),
+        description: value.description.trim() || undefined,
+        priority: value.priority,
+        tags: parseTags(value.tags),
+      });
     },
   });
 
@@ -151,31 +171,8 @@ export function BoardScreen() {
 
   function openCreateTaskDialog() {
     createTaskMutation.reset();
-    setCreateTaskValidationError(null);
-    setNewTaskDraft((draft) => ({
-      ...draft,
-      columnId: selectedColumnId,
-    }));
+    createTaskForm.reset(createEmptyTaskFormValues(defaultColumnId));
     setIsCreateTaskOpen(true);
-  }
-
-  async function handleCreateTaskSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const title = newTaskDraft.title.trim();
-    if (!title) {
-      setCreateTaskValidationError("Title is required.");
-      return;
-    }
-    setCreateTaskValidationError(null);
-
-    createTaskMutation.mutate({
-      columnId: selectedColumnId,
-      title,
-      description: newTaskDraft.description.trim() || undefined,
-      priority: newTaskDraft.priority,
-      tags: parseTags(newTaskDraft.tags),
-    });
   }
 
   return (
@@ -251,10 +248,14 @@ export function BoardScreen() {
       </main>
 
       {isCreateTaskOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4 backdrop-blur-sm">
           <form
-            onSubmit={handleCreateTaskSubmit}
-            className="w-full max-w-md rounded-2xl border border-border bg-surface p-4 shadow-2xl shadow-black/40"
+            onSubmit={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void createTaskForm.handleSubmit();
+            }}
+            className="w-full max-w-md rounded-3xl border border-border bg-surface p-4 shadow-2xl shadow-black/40"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-foreground">
@@ -271,112 +272,126 @@ export function BoardScreen() {
             </div>
 
             <div className="space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">
-                  Column
-                </span>
-                <select
-                  value={selectedColumnId}
-                  onChange={(event) =>
-                    setNewTaskDraft((draft) => ({
-                      ...draft,
-                      columnId: Number(event.target.value),
-                    }))
-                  }
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
-                >
-                  {columns.map((column) => (
-                    <option key={column.id} value={column.id}>
-                      {column.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <createTaskForm.Field name="columnId">
+                {(field) => (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">
+                      Column
+                    </span>
+                    <select
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(Number(event.target.value))
+                      }
+                      className="w-full rounded-t-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
+                    >
+                      {columns.map((column) => (
+                        <option key={column.id} value={column.id}>
+                          {column.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </createTaskForm.Field>
 
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">
-                  Title
-                </span>
-                <input
-                  value={newTaskDraft.title}
-                  onChange={(event) =>
-                    setNewTaskDraft((draft) => ({
-                      ...draft,
-                      title: event.target.value,
-                    }))
-                  }
-                  autoFocus
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
-                  placeholder="Task title"
-                />
-              </label>
+              <createTaskForm.Field name="title">
+                {(field) => (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">
+                      Title
+                    </span>
+                    <input
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      autoFocus
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                      placeholder="Task title"
+                    />
+                    {field.state.meta.errors.length > 0 ? (
+                      <p className="mt-1 text-xs text-danger">
+                        {getErrorMessage(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </label>
+                )}
+              </createTaskForm.Field>
 
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">
-                  Description
-                </span>
-                <textarea
-                  value={newTaskDraft.description}
-                  onChange={(event) =>
-                    setNewTaskDraft((draft) => ({
-                      ...draft,
-                      description: event.target.value,
-                    }))
-                  }
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
-                  placeholder="Optional details"
-                />
-              </label>
+              <createTaskForm.Field name="description">
+                {(field) => (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">
+                      Description
+                    </span>
+                    <textarea
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                      placeholder="Optional details"
+                    />
+                  </label>
+                )}
+              </createTaskForm.Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-muted">
-                    Priority
-                  </span>
-                  <select
-                    value={newTaskDraft.priority}
-                    onChange={(event) =>
-                      setNewTaskDraft((draft) => ({
-                        ...draft,
-                        priority: event.target.value as Priority,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
-                  >
-                    {priorities.map((priority) => (
-                      <option key={priority} value={priority}>
-                        {priority}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <createTaskForm.Field name="priority">
+                  {(field) => (
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-muted">
+                        Priority
+                      </span>
+                      <select
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value as Priority)
+                        }
+                        className="w-full rounded-t-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent"
+                      >
+                        {priorities.map((priority) => (
+                          <option key={priority} value={priority}>
+                            <p className="">{priority}</p>
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </createTaskForm.Field>
 
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-muted">
-                    Tags
-                  </span>
-                  <input
-                    value={newTaskDraft.tags}
-                    onChange={(event) =>
-                      setNewTaskDraft((draft) => ({
-                        ...draft,
-                        tags: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
-                    placeholder="ui, backend"
-                  />
-                </label>
+                <createTaskForm.Field name="tags">
+                  {(field) => (
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-muted">
+                        Tags
+                      </span>
+                      <input
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-subtle focus:border-accent"
+                        placeholder="ui, backend"
+                      />
+                    </label>
+                  )}
+                </createTaskForm.Field>
               </div>
             </div>
 
-            {createTaskValidationError || createTaskMutation.error ? (
+            {createTaskMutation.error ? (
               <p className="mt-3 text-xs text-danger">
-                {createTaskValidationError ??
-                  (createTaskMutation.error instanceof Error
-                    ? createTaskMutation.error.message
-                    : "Failed to create task.")}
+                {createTaskMutation.error instanceof Error
+                  ? createTaskMutation.error.message
+                  : "Failed to create task."}
               </p>
             ) : null}
 
