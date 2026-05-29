@@ -27,6 +27,8 @@ import type {
 export function KanbanBoard({
   initialColumns,
   onColumnsChange,
+  onTaskClick,
+  onColumnClick,
 }: KanbanBoardProps) {
   const [columns, setColumns] = useState<ColumnData[]>(initialColumns);
   const [activeTask, setActiveTask] = useState<TaskData | null>(null);
@@ -279,6 +281,8 @@ export function KanbanBoard({
             title={column.title}
             wipLimit={column.wipLimit}
             tasks={column.tasks}
+            onTaskClick={onTaskClick}
+            onColumnClick={onColumnClick}
           />
         ))}
       </div>

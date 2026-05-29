@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import {
   MdAdd,
@@ -7,16 +7,25 @@ import {
   MdDarkMode,
   MdLightMode,
 } from "react-icons/md";
+import { ColumnEditModal } from "./ColumnEditModal";
+import { FilterPanel } from "./FilterPanel";
 import { KanbanBoard } from "./KanbanBoard";
 import { FALLBACK_COLUMNS } from "./mock-data";
 import {
   useBoardDataQuery,
+  useCreateColumnMutation,
   useCreateTaskMutation,
+  useDeleteColumnMutation,
+  useDeleteTaskMutation,
   useUpdateBoardColumns,
+  useUpdateColumnMutation,
+  useUpdateTaskMutation,
 } from "./queries";
 import { createTaskFormSchema } from "./schemas";
 import type { CreateTaskFormValues } from "./schemas";
-import type { Priority } from "./types";
+import { TaskEditModal } from "./TaskEditModal";
+import type { TaskEditValues } from "./TaskEditModal";
+import type { ColumnData, FilterState, Priority, TaskData } from "./types";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
@@ -103,9 +112,67 @@ export function BoardScreen() {
     resolveTheme(getInitialThemeMode()),
   );
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<{
+    task: TaskData;
+    columnId: number;
+  } | null>(null);
+  const [columnModal, setColumnModal] = useState<{
+    mode: "create" | "edit";
+    column?: ColumnData;
+  } | null>(null);
+  const [filter, setFilter] = useState<FilterState>({
+    search: "",
+    priorities: [],
+    tags: [],
+  });
 
   const { isLoading, data: columns = FALLBACK_COLUMNS } = useBoardDataQuery();
   const defaultColumnId = columns[0]?.id ?? FALLBACK_COLUMNS[0]?.id ?? 0;
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const column of columns) {
+      for (const task of column.tasks) {
+        for (const tag of task.tags) {
+          tagSet.add(tag);
+        }
+      }
+    }
+    return Array.from(tagSet).sort();
+  }, [columns]);
+
+  const filteredColumns = useMemo((): ColumnData[] => {
+    const hasFilter =
+      filter.search || filter.priorities.length > 0 || filter.tags.length > 0;
+    if (!hasFilter) {
+      return columns;
+    }
+
+    const searchLower = filter.search.toLowerCase();
+
+    return columns.map((column) => ({
+      ...column,
+      tasks: column.tasks.filter((task) => {
+        if (searchLower) {
+          const matchesSearch =
+            task.title.toLowerCase().includes(searchLower) ||
+            (task.description?.toLowerCase().includes(searchLower) ?? false) ||
+            task.tags.some((tag) => tag.toLowerCase().includes(searchLower));
+          if (!matchesSearch) return false;
+        }
+
+        if (filter.priorities.length > 0) {
+          if (!filter.priorities.includes(task.priority)) return false;
+        }
+
+        if (filter.tags.length > 0) {
+          if (!filter.tags.some((tag) => task.tags.includes(tag))) return false;
+        }
+
+        return true;
+      }),
+    }));
+  }, [columns, filter]);
 
   const updateBoardColumns = useUpdateBoardColumns();
   const createTaskMutation = useCreateTaskMutation({
@@ -125,6 +192,65 @@ export function BoardScreen() {
       setBoardRevision((value) => value + 1);
       createTaskForm.reset(createEmptyTaskFormValues(input.columnId));
       setIsCreateTaskOpen(false);
+    },
+  });
+
+  const updateTaskMutation = useUpdateTaskMutation({
+    onSuccess: (updatedTask) => {
+      const nextColumns = columns.map((column) => ({
+        ...column,
+        tasks: column.tasks.map((task) =>
+          task.id === updatedTask.id ? updatedTask : task,
+        ),
+      }));
+      updateBoardColumns(nextColumns);
+      setBoardRevision((value) => value + 1);
+      setEditingTask(null);
+    },
+  });
+
+  const deleteTaskMutation = useDeleteTaskMutation({
+    onSuccess: (_result, input) => {
+      const taskId = String(input.taskId);
+      const nextColumns = columns.map((column) => ({
+        ...column,
+        tasks: column.tasks.filter((task) => task.id !== taskId),
+      }));
+      updateBoardColumns(nextColumns);
+      setBoardRevision((value) => value + 1);
+      setEditingTask(null);
+    },
+  });
+
+  const createColumnMutation = useCreateColumnMutation({
+    onSuccess: (newColumn) => {
+      updateBoardColumns([...columns, newColumn]);
+      setBoardRevision((value) => value + 1);
+      setColumnModal(null);
+    },
+  });
+
+  const updateColumnMutation = useUpdateColumnMutation({
+    onSuccess: (_result, input) => {
+      const nextColumns = columns.map((column) =>
+        column.id === input.columnId
+          ? { ...column, title: input.title, wipLimit: input.wipLimit }
+          : column,
+      );
+      updateBoardColumns(nextColumns);
+      setBoardRevision((value) => value + 1);
+      setColumnModal(null);
+    },
+  });
+
+  const deleteColumnMutation = useDeleteColumnMutation({
+    onSuccess: (_result, input) => {
+      const nextColumns = columns.filter(
+        (column) => column.id !== input.columnId,
+      );
+      updateBoardColumns(nextColumns);
+      setBoardRevision((value) => value + 1);
+      setColumnModal(null);
     },
   });
 
@@ -175,6 +301,62 @@ export function BoardScreen() {
     setIsCreateTaskOpen(true);
   }
 
+  function handleTaskClick(taskId: string) {
+    for (const column of columns) {
+      const task = column.tasks.find((t) => t.id === taskId);
+      if (task) {
+        updateTaskMutation.reset();
+        deleteTaskMutation.reset();
+        setEditingTask({ task, columnId: column.id });
+        return;
+      }
+    }
+  }
+
+  function handleEditSubmit(values: TaskEditValues) {
+    if (!editingTask) return;
+    updateTaskMutation.mutate({
+      taskId: Number(editingTask.task.id),
+      title: values.title.trim(),
+      description: values.description.trim() || undefined,
+      priority: values.priority,
+      tags: parseTags(values.tags),
+    });
+  }
+
+  function handleDeleteTask() {
+    if (!editingTask) return;
+    deleteTaskMutation.mutate({ taskId: Number(editingTask.task.id) });
+  }
+
+  function handleColumnSubmit(title: string, wipLimit: number) {
+    if (columnModal?.mode === "create") {
+      createColumnMutation.mutate({ title, wipLimit });
+    } else if (columnModal?.mode === "edit" && columnModal.column) {
+      updateColumnMutation.mutate({
+        columnId: columnModal.column.id,
+        title,
+        wipLimit,
+      });
+    }
+  }
+
+  function handleColumnDelete() {
+    if (columnModal?.mode === "edit" && columnModal.column) {
+      deleteColumnMutation.mutate({ columnId: columnModal.column.id });
+    }
+  }
+
+  function handleColumnClick(columnId: number) {
+    const column = columns.find((c) => c.id === columnId);
+    if (column) {
+      createColumnMutation.reset();
+      updateColumnMutation.reset();
+      deleteColumnMutation.reset();
+      setColumnModal({ mode: "edit", column });
+    }
+  }
+
   return (
     <section className="flex h-screen flex-col overflow-hidden bg-background text-foreground antialiased">
       <header className="flex items-center justify-between border-b border-border bg-surface/50 px-6 py-3 backdrop-blur">
@@ -188,11 +370,20 @@ export function BoardScreen() {
         </div>
 
         <div className="flex items-center gap-2">
+          <FilterPanel
+            filter={filter}
+            availableTags={availableTags}
+            onChange={setFilter}
+          />
           <button
             type="button"
+            onClick={() => {
+              createColumnMutation.reset();
+              setColumnModal({ mode: "create" });
+            }}
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted transition-all duration-200 hover:border-border-hover hover:text-foreground"
           >
-            Filters
+            + Column
           </button>
           <button
             type="button"
@@ -241,8 +432,10 @@ export function BoardScreen() {
         ) : (
           <KanbanBoard
             key={boardRevision}
-            initialColumns={columns}
+            initialColumns={filteredColumns}
             onColumnsChange={updateBoardColumns}
+            onTaskClick={handleTaskClick}
+            onColumnClick={handleColumnClick}
           />
         )}
       </main>
@@ -414,6 +607,62 @@ export function BoardScreen() {
             </div>
           </form>
         </div>
+      ) : null}
+
+      {editingTask ? (
+        <TaskEditModal
+          task={editingTask.task}
+          columns={columns}
+          currentColumnId={editingTask.columnId}
+          onSubmit={handleEditSubmit}
+          onDelete={handleDeleteTask}
+          onClose={() => setEditingTask(null)}
+          isPending={updateTaskMutation.isPending}
+          isDeleting={deleteTaskMutation.isPending}
+          error={
+            updateTaskMutation.error
+              ? updateTaskMutation.error instanceof Error
+                ? updateTaskMutation.error.message
+                : "Failed to update task."
+              : deleteTaskMutation.error
+                ? deleteTaskMutation.error instanceof Error
+                  ? deleteTaskMutation.error.message
+                  : "Failed to delete task."
+                : undefined
+          }
+        />
+      ) : null}
+
+      {columnModal ? (
+        <ColumnEditModal
+          mode={columnModal.mode}
+          initialTitle={columnModal.column?.title}
+          initialWipLimit={columnModal.column?.wipLimit}
+          onSubmit={handleColumnSubmit}
+          onDelete={columnModal.mode === "edit" ? handleColumnDelete : undefined}
+          onClose={() => setColumnModal(null)}
+          isPending={
+            columnModal.mode === "create"
+              ? createColumnMutation.isPending
+              : updateColumnMutation.isPending
+          }
+          isDeleting={deleteColumnMutation.isPending}
+          error={
+            createColumnMutation.error
+              ? createColumnMutation.error instanceof Error
+                ? createColumnMutation.error.message
+                : "Failed to create column."
+              : updateColumnMutation.error
+                ? updateColumnMutation.error instanceof Error
+                  ? updateColumnMutation.error.message
+                  : "Failed to update column."
+                : deleteColumnMutation.error
+                  ? deleteColumnMutation.error instanceof Error
+                    ? deleteColumnMutation.error.message
+                    : "Failed to delete column."
+                  : undefined
+          }
+        />
       ) : null}
     </section>
   );

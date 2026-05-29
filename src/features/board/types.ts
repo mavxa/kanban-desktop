@@ -5,11 +5,15 @@ export interface BoardColumnProps {
   title: string;
   wipLimit: number;
   tasks: TaskData[];
+  onTaskClick?: (taskId: string) => void;
+  onColumnClick?: (columnId: number) => void;
 }
 
 export interface KanbanBoardProps {
   initialColumns: ColumnData[];
   onColumnsChange?: (columns: ColumnData[]) => void;
+  onTaskClick?: (taskId: string) => void;
+  onColumnClick?: (columnId: number) => void;
 }
 
 export interface DragStartMeta {
@@ -52,4 +56,37 @@ export interface NewTaskDraft {
   description: string;
   priority: Priority;
   tags: string;
+}
+
+export interface FilterState {
+  search: string;
+  priorities: Priority[];
+  tags: string[];
+}
+
+export interface UpdateTaskInput {
+  taskId: number;
+  title: string;
+  description?: string;
+  priority: Priority;
+  tags: string[];
+}
+
+export interface DeleteTaskInput {
+  taskId: number;
+}
+
+export interface CreateColumnInput {
+  title: string;
+  wipLimit: number;
+}
+
+export interface UpdateColumnInput {
+  columnId: number;
+  title: string;
+  wipLimit: number;
+}
+
+export interface DeleteColumnInput {
+  columnId: number;
 }

@@ -8,6 +8,7 @@ interface TaskCardProps {
   description?: string;
   priority: Priority;
   tags: string[];
+  onClick?: () => void;
 }
 
 interface TaskCardPreviewProps {
@@ -87,6 +88,7 @@ export function TaskCard({
   description,
   priority,
   tags,
+  onClick,
 }: TaskCardProps) {
   const {
     attributes,
@@ -122,6 +124,7 @@ export function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
+      onClick={onClick}
       className="group cursor-grab rounded-2xl border border-border bg-surface p-3 transition-all duration-200 hover:border-border-hover active:cursor-grabbing"
     >
       <TaskCardContent

@@ -6,7 +6,7 @@ import {
 import { TaskCard } from "./TaskCard";
 import type { BoardColumnProps } from "./types";
 
-export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
+export function BoardColumn({ id, title, wipLimit, tasks, onTaskClick, onColumnClick }: BoardColumnProps) {
   const isOverLimit = wipLimit > 0 && tasks.length > wipLimit;
   const isAtLimit = wipLimit > 0 && tasks.length === wipLimit;
 
@@ -21,9 +21,13 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
     <div className="flex w-72 shrink-0 flex-col">
       <div className="flex items-center justify-between px-2 pb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+          <button
+            type="button"
+            onClick={() => onColumnClick?.(id)}
+            className="text-sm font-semibold uppercase tracking-wider text-foreground transition-colors hover:text-accent"
+          >
             {title}
-          </h2>
+          </button>
           <span className="flex h-5 w-5 items-center justify-center rounded bg-surface-hover text-xs font-mono text-muted">
             {tasks.length}
           </span>
@@ -39,7 +43,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
                   : "bg-surface-hover text-muted"
             }`}
           >
-            WIP: {wipLimit}
+            {tasks.length}/{wipLimit}
           </span>
         ) : null}
       </div>
@@ -66,6 +70,7 @@ export function BoardColumn({ id, title, wipLimit, tasks }: BoardColumnProps) {
               description={task.description}
               priority={task.priority}
               tags={task.tags}
+              onClick={() => onTaskClick?.(task.id)}
             />
           ))}
 
