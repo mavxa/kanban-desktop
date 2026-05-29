@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -295,6 +296,10 @@ export function BoardScreen() {
     };
   }, [themeMode]);
 
+  useHotkey("Escape", () => setIsCreateTaskOpen(false), {
+    enabled: isCreateTaskOpen,
+  });
+
   function openCreateTaskDialog() {
     createTaskMutation.reset();
     createTaskForm.reset(createEmptyTaskFormValues(defaultColumnId));
@@ -364,16 +369,19 @@ export function BoardScreen() {
           <h1 className="text-lg font-bold tracking-tight text-foreground">
             Kanban Board
           </h1>
-          <span className="rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-mono text-muted">
-            MVP
-          </span>
+          {/*<span className="rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-mono text-muted">
+            WIP
+          </span>*/}
         </div>
 
         <div className="flex items-center gap-2">
           <FilterPanel
             filter={filter}
             availableTags={availableTags}
-            onChange={setFilter}
+            onChange={(nextFilter) => {
+              setFilter(nextFilter);
+              setBoardRevision((v) => v + 1);
+            }}
           />
           <button
             type="button"
@@ -639,7 +647,9 @@ export function BoardScreen() {
           initialTitle={columnModal.column?.title}
           initialWipLimit={columnModal.column?.wipLimit}
           onSubmit={handleColumnSubmit}
-          onDelete={columnModal.mode === "edit" ? handleColumnDelete : undefined}
+          onDelete={
+            columnModal.mode === "edit" ? handleColumnDelete : undefined
+          }
           onClose={() => setColumnModal(null)}
           isPending={
             columnModal.mode === "create"

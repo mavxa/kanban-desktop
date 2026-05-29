@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { MdClose, MdDelete } from "react-icons/md";
 import type { ColumnData, Priority, TaskData } from "./types";
 
@@ -47,6 +48,8 @@ export function TaskEditModal({
   error,
 }: TaskEditModalProps) {
   const currentColumn = columns.find((c) => c.id === currentColumnId);
+
+  useHotkey("Escape", () => onClose());
 
   const form = useForm({
     defaultValues: {
@@ -177,9 +180,7 @@ export function TaskEditModal({
           </div>
         </div>
 
-        {error ? (
-          <p className="mt-3 text-xs text-danger">{error}</p>
-        ) : null}
+        {error ? <p className="mt-3 text-xs text-danger">{error}</p> : null}
 
         <div className="mt-5 flex items-center justify-between">
           <button

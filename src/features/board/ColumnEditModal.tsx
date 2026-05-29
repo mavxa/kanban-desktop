@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { MdClose, MdDelete } from "react-icons/md";
 
 interface ColumnEditModalProps {
@@ -27,6 +28,8 @@ export function ColumnEditModal({
   const [title, setTitle] = useState(initialTitle);
   const [wipLimit, setWipLimit] = useState(String(initialWipLimit));
   const [titleError, setTitleError] = useState("");
+
+  useHotkey("Escape", () => onClose());
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
