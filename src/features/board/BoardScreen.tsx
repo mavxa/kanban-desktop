@@ -27,6 +27,7 @@ import type { CreateTaskFormValues } from "./schemas";
 import { TaskEditModal } from "./TaskEditModal";
 import type { TaskEditValues } from "./TaskEditModal";
 import type { ColumnData, FilterState, Priority, TaskData } from "./types";
+import { version as APP_VERSION } from "../../../package.json";
 
 type ThemeMode = "dark" | "light" | "auto";
 type ResolvedTheme = Exclude<ThemeMode, "auto">;
@@ -369,9 +370,9 @@ export function BoardScreen() {
           <h1 className="text-lg font-bold tracking-tight text-foreground">
             Kanban Board
           </h1>
-          {/*<span className="rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-mono text-muted">
-            WIP
-          </span>*/}
+          <span className="rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-mono text-muted">
+            v{APP_VERSION}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
