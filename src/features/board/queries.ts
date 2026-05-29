@@ -9,7 +9,6 @@ import {
   updateColumn,
   updateTask,
 } from "./api";
-import { FALLBACK_COLUMNS } from "./mock-data";
 import { boardQueryKey } from "./query-keys";
 import type {
   ColumnData,
@@ -26,8 +25,6 @@ export function useBoardDataQuery() {
   return useQuery({
     queryKey: boardQueryKey,
     queryFn: getBoardData,
-    select: (boardColumns) =>
-      boardColumns.length > 0 ? boardColumns : FALLBACK_COLUMNS,
   });
 }
 

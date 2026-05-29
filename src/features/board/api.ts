@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { FALLBACK_COLUMNS } from "./mock-data";
 import type {
   ColumnData,
   CreateColumnInput,
@@ -23,13 +22,13 @@ function hasTauriBridge() {
 
 export async function getBoardData(): Promise<ColumnData[]> {
   if (!hasTauriBridge()) {
-    return FALLBACK_COLUMNS;
+    return [];
   }
 
   try {
     return await invoke<ColumnData[]>("get_board_data");
   } catch {
-    return FALLBACK_COLUMNS;
+    return [];
   }
 }
 

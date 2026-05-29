@@ -11,7 +11,6 @@ import {
 import { ColumnEditModal } from "./ColumnEditModal";
 import { FilterPanel } from "./FilterPanel";
 import { KanbanBoard } from "./KanbanBoard";
-import { FALLBACK_COLUMNS } from "./mock-data";
 import {
   useBoardDataQuery,
   useCreateColumnMutation,
@@ -128,8 +127,8 @@ export function BoardScreen() {
     tags: [],
   });
 
-  const { isLoading, data: columns = FALLBACK_COLUMNS } = useBoardDataQuery();
-  const defaultColumnId = columns[0]?.id ?? FALLBACK_COLUMNS[0]?.id ?? 0;
+  const { isLoading, data: columns = [] } = useBoardDataQuery();
+  const defaultColumnId = columns[0]?.id ?? 0;
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -301,6 +300,8 @@ export function BoardScreen() {
     enabled: isCreateTaskOpen,
   });
 
+  const noModalsOpen = !isCreateTaskOpen && !editingTask && !columnModal;
+
   function openCreateTaskDialog() {
     createTaskMutation.reset();
     createTaskForm.reset(createEmptyTaskFormValues(defaultColumnId));
@@ -363,10 +364,29 @@ export function BoardScreen() {
     }
   }
 
+  useHotkey(
+    "Mod+N",
+    (e) => {
+      e.preventDefault();
+      if (columns.length > 0) openCreateTaskDialog();
+    },
+    { enabled: noModalsOpen },
+  );
+
+  useHotkey(
+    "Mod+Shift+N",
+    (e) => {
+      e.preventDefault();
+      createColumnMutation.reset();
+      setColumnModal({ mode: "create" });
+    },
+    { enabled: noModalsOpen },
+  );
+
   return (
     <section className="flex h-screen flex-col overflow-hidden bg-background text-foreground antialiased">
       <header className="flex items-center justify-between border-b border-border bg-surface/50 px-6 py-3 backdrop-blur">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-default">
           <h1 className="text-lg font-bold tracking-tight text-foreground">
             Kanban Board
           </h1>
@@ -437,6 +457,15 @@ export function BoardScreen() {
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted">
             Loading board...
+          </div>
+        ) : columns.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center cursor-default">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col gap-1 text-[14px] font-mono text-muted-subtle">
+                <span>Ctrl+Shift+N — new column</span>
+                <span>Ctrl+N — new task</span>
+              </div>
+            </div>
           </div>
         ) : (
           <KanbanBoard
