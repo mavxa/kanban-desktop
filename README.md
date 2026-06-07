@@ -19,14 +19,14 @@ A local-first desktop kanban board app built with Tauri, React, and SQLite. No b
 <details>
 <summary><b>Drag & drop</b></summary>
 
-![board](public/photo_2026-06-07_17-04-44.jpg)
+![dnd](public/photo_2026-06-07_17-04-44.jpg)
 
 </details>
 
 <details>
 <summary><b>Board with tasks</b></summary>
 
-![dark](public/photo_2026-06-07_17-04-48.jpg)
+![tasks](public/photo_2026-06-07_17-04-48.jpg)
 
 </details>
 
@@ -40,14 +40,14 @@ A local-first desktop kanban board app built with Tauri, React, and SQLite. No b
 <details>
 <summary><b>Filters</b></summary>
 
-![task](public/photo_2026-06-07_17-04-59.jpg)
+![filters](public/photo_2026-06-07_17-04-59.jpg)
 
 </details>
 
 <details>
 <summary><b>Create task</b></summary>
 
-![column](public/photo_2026-06-07_17-05-03.jpg)
+![create](public/photo_2026-06-07_17-05-03.jpg)
 
 </details>
 
