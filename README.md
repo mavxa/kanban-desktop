@@ -1,75 +1,161 @@
-# React + TypeScript + Vite
+# Kanban Desktop
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A local-first desktop kanban board app built with Tauri, React, and SQLite. No backend server, no cloud sync — your board data lives entirely on your machine.
 
-Currently, two official plugins are available:
+- **Core/Backend:** Tauri (Rust)
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS 4
+- **Local DB:** SQLite via `rusqlite`
+- **Package manager:** Bun
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Install
 
-## React Compiler
+<details open>
+<summary><b>Download release</b></summary>
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+Grab the latest binary from the [Releases](https://github.com/mavxa/kanban-desktop/releases) page:
 
-Note: This will impact Vite dev & build performances.
+| Platform | File |
+|----------|------|
+| Windows | `.msi` or `setup.exe` |
+| Linux | `.deb`, `.AppImage`, or `.rpm` |
 
-## Expanding the ESLint configuration
+No additional dependencies needed — the app bundles its own SQLite runtime.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+</details>
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+<details>
+<summary><b>Build from source</b></summary>
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Prerequisites:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- [Bun](https://bun.sh)
+- [Rust](https://rustup.rs)
+- Linux: `build-essential`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`
+
+Clone and build:
+
+```sh
+git clone https://github.com/mavxa/kanban-desktop.git
+cd kanban-desktop
+bun install
+bun run tauri:build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The binary lands at `src-tauri/target/release/kanban-desktop`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+</details>
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Features
+
+<details open>
+<summary><b>Board</b></summary>
+
+- Drag-and-drop task cards between columns via `dnd-kit`
+- Create, edit, and delete columns with custom WIP limits
+- Create, edit, and delete tasks with title, description, priority, and tags
+- Persistent SQLite storage — all changes survive app restarts
+
+</details>
+
+<details open>
+<summary><b>Filtering</b></summary>
+
+- Text search across task titles, descriptions, and tags
+- Filter by priority (low / medium / high)
+- Filter by tags — auto-populated from all existing tasks
+- Filters apply on panel close (Enter or Apply button)
+
+</details>
+
+<details open>
+<summary><b>Theming</b></summary>
+
+- Dark / light / auto modes
+- Auto follows `prefers-color-scheme`
+- Persisted in `localStorage`
+
+</details>
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl + Shift + N` | New column |
+| `Ctrl + N` | New task (when columns exist) |
+| `Enter` | Apply filters |
+| `Escape` | Close any modal or filter panel |
+
+## Stack
+
+| Layer | Tech |
+|-------|------|
+| Desktop shell | Tauri v2 |
+| UI framework | React 19 |
+| Language | TypeScript 5.9 |
+| Bundler | Vite 8 |
+| Styling | Tailwind CSS 4.1 |
+| State / queries | TanStack Query |
+| Forms | TanStack Form + Zod |
+| Drag & drop | dnd-kit |
+| Icons | react-icons (Material Design) |
+| DB | SQLite (`rusqlite` in Rust) |
+
+## Development
+
+```sh
+# Frontend dev server
+bun run dev
+
+# Desktop app with hot reload
+bunx tauri dev
+
+# Lint
+bun run lint
+
+# Production build (frontend only)
+bun run build
+
+# Full desktop build
+bun run tauri:build
+
+# Rust checks
+cd src-tauri && cargo check
 ```
+
+## Architecture
+
+```text
+src/
+  features/board/
+    BoardScreen.tsx      # Root screen with modals and filters
+    KanbanBoard.tsx      # DnD context and drag handlers
+    BoardColumn.tsx      # Droppable column
+    TaskCard.tsx         # Sortable task card
+    FilterPanel.tsx      # Search + priority + tag filters
+    TaskEditModal.tsx    # Edit / delete task
+    ColumnEditModal.tsx  # Create / edit / delete column
+    api.ts               # Tauri invoke wrappers
+    queries.ts           # TanStack Query hooks
+    types.ts             # Domain types
+    schemas.ts           # Zod form schemas
+  src-tauri/src/
+    main.rs              # Tauri app entry
+    lib.rs               # Commands (get_board_data, create_task, etc.)
+    db/
+      mod.rs             # Bootstrap (ensure board exists)
+      connection.rs      # SQLite path + open
+      migrations.rs      # PRAGMA user_version migrations
+      repo.rs            # CRUD queries
+      seed.rs            # Dev seed module (not called in production)
+```
+
+## CI / CD
+
+GitHub Actions builds and publishes releases automatically on every `v*` tag push:
+
+- `.github/workflows/ci.yml` — lint, build, `cargo check`
+- `.github/workflows/release.yml` — cross-platform Tauri builds (Ubuntu + Windows) and GitHub Release publishing
+
+## License
+
+MIT
