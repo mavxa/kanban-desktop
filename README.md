@@ -7,6 +7,50 @@ A local-first desktop kanban board app built with Tauri, React, and SQLite. No b
 - **Local DB:** SQLite via `rusqlite`
 - **Package manager:** Bun
 
+## Screenshots
+
+<details>
+<summary><b>Empty board</b></summary>
+
+![empty](public/photo_2026-06-07_17-04-22.jpg)
+
+</details>
+
+<details>
+<summary><b>Drag & drop</b></summary>
+
+![board](public/photo_2026-06-07_17-04-44.jpg)
+
+</details>
+
+<details>
+<summary><b>Board with tasks</b></summary>
+
+![dark](public/photo_2026-06-07_17-04-48.jpg)
+
+</details>
+
+<details>
+<summary><b>Light theme</b></summary>
+
+![light](public/photo_2026-06-07_17-04-55.jpg)
+
+</details>
+
+<details>
+<summary><b>Filters</b></summary>
+
+![task](public/photo_2026-06-07_17-04-59.jpg)
+
+</details>
+
+<details>
+<summary><b>Create task</b></summary>
+
+![column](public/photo_2026-06-07_17-05-03.jpg)
+
+</details>
+
 ## Install
 
 <details open>
