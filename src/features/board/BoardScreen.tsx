@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useCodeHotkey } from "../../hooks/useCodeHotkey";
 import {
   MdAdd,
   MdBrightnessAuto,
@@ -375,6 +376,37 @@ export function BoardScreen() {
 
   useHotkey(
     "Mod+Shift+N",
+    (e) => {
+      e.preventDefault();
+      createColumnMutation.reset();
+      setColumnModal({ mode: "create" });
+    },
+    { enabled: noModalsOpen },
+  );
+
+  // Layout-independent fallback for non-Latin keyboard layouts (RU, etc.).
+  // tanstack hotkeys match by `event.key` which on a RU layout is "т" for
+  // physical N, so Ctrl+N never fires. These fire on `event.code === "KeyN"`
+  // and skip themselves on Latin layouts to avoid double-handling.
+  const isMac =
+    typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+  const modMods = isMac
+    ? { meta: true, ctrl: false }
+    : { ctrl: true, meta: false };
+
+  useCodeHotkey(
+    "KeyN",
+    modMods,
+    (e) => {
+      e.preventDefault();
+      if (columns.length > 0) openCreateTaskDialog();
+    },
+    { enabled: noModalsOpen },
+  );
+
+  useCodeHotkey(
+    "KeyN",
+    { ...modMods, shift: true },
     (e) => {
       e.preventDefault();
       createColumnMutation.reset();
