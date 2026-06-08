@@ -26,7 +26,10 @@ export function useCodeHotkey(
 ) {
   const { enabled = true } = options;
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
 
   useEffect(() => {
     if (!enabled) return;
